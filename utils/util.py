@@ -21,7 +21,7 @@ def batch_cuda(batch):
     return _batch
 
 import utils.gtransforms as gtransforms
-def clip_transform(split, max_len):
+def clip_transform(split, max_len=32):
 
     mean, std = kinetics_mean_std()
     if split=='train':
@@ -52,6 +52,15 @@ def clip_transform(split, max_len):
                 gtransforms.ToTensor(),
                 gtransforms.GroupNormalize(mean, std),
                 gtransforms.LoopPad(max_len),
+            ])
+
+    elif split == '10_crop_ucf':
+                transform = transforms.Compose([
+                gtransforms.GroupResize(256),
+                gtransforms.GroupTenCrop(224),
+                gtransforms.GroupTenCropToTensor(),
+                gtransforms.GroupTenNormalize(mean, std),
+                # gtransforms.GroupTenLoopPad(max_len),
             ])
 
     return transform

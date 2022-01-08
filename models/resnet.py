@@ -182,10 +182,10 @@ class I3Res50(nn.Module):
         x = self.layer4(x)
 
         x = self.avgpool(x)
-        x = self.drop(x)
-
-        x = x.view(x.shape[0], -1)
-        x = self.fc(x)
+        # x = self.drop(x)
+        #
+        # x = x.view(x.shape[0], -1)
+        # x = self.fc(x)
         return x
 
     def forward_multi(self, x):
@@ -201,22 +201,38 @@ class I3Res50(nn.Module):
         clip_preds = torch.stack(clip_preds, 1).mean(1) # (B, 400)
         return clip_preds
 
+    def forward_multi2(self, x):
+        b, n_crops, c, t, w, h = x.shape  # 64, 10, 3, 16, 224, 224
+        clip_features = []
+        for clip_idx in range(x.shape[1]): # B*snipts, 10, 3, 16, 224, 224
+            clip = x[:, clip_idx]  # B, 3, 16, 224, 224
+            clip = self.forward_single(clip).view(b, -1)
+            clip_features.append(clip)
+
+        clip_features = torch.stack(clip_features, 1)
+        # clip_features = torch.permute(clip_features, (1, 0, 2))  # B, 10, 2048
+        return clip_features
+
     def forward(self, batch):
 
-        # 5D tensor == single clip
-        if batch['frames'].dim() == 5:
-            pred = self.forward_single(batch['frames'])
+        # # 5D tensor == single clip
+        # if batch['frames'].dim() == 5:
+        #     pred = self.forward_single(batch['frames'])
 
-        # 7D tensor == 3 crops/10 clips
-        elif batch['frames'].dim() == 7:
-            pred = self.forward_multi(batch['frames'])
+        if batch.dim() == 6:  ## [b*snipts, 10, 3, 16, w, h]
+            pred = self.forward_multi2(batch)
 
-        loss_dict = {}
-        if 'label' in batch:
-            loss = F.cross_entropy(pred, batch['label'], reduction='none')
-            loss_dict = {'loss': loss}
-            
-        return pred, loss_dict
+        # # 7D tensor == 3 crops/10 clips
+        # elif batch['frames'].dim() == 7:
+        #     pred = self.forward_multi(batch['frames'])
+
+        # loss_dict = {}
+        # if 'label' in batch:
+        #     loss = F.cross_entropy(pred, batch['label'], reduction='none')
+        #     loss_dict = {'loss': loss}
+
+        # return pred, loss_dict
+        return pred
 
 #-----------------------------------------------------------------------------------------------#
 

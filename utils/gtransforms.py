@@ -92,3 +92,48 @@ class ToTensor(object):
     def __call__(self, img_group):
         img_group = [self.worker(img) for img in img_group]
         return torch.stack(img_group, 0)
+
+# class GroupTenCrop(object):
+#     def __init__(self, size):
+#         transform = torchvision.transforms.Compose([
+#         torchvision.transforms.TenCrop(size),
+#         torchvision.transforms.Lambda(lambda crops: torch.stack([torchvision.transforms.ToTensor()(crop) for crop in crops])),
+#         ])
+#         self.worker = transform
+#     def __call__(self, img_group):
+#         return [self.worker(img) for img in img_group]
+
+class GroupTenCrop(object):
+    def __init__(self, size):
+        self.worker = torchvision.transforms.TenCrop(size)
+
+    def __call__(self, img_group):
+        # 经过tencrop后原来的一帧被裁剪为10张，并由元素的形式保存
+        group_ = [self.worker(img) for img in img_group]
+        return group_
+
+class GroupTenCropToTensor(object):
+    def __init__(self):
+        self.worker = lambda crops: torch.stack([torchvision.transforms.ToTensor()(crop) * 255 for crop in crops])
+
+    def __call__(self, crops):
+        group_ = [self.worker(crop) for crop in crops]
+        stack = torch.stack(group_, 1)
+        return stack
+
+class GroupTenNormalize(object):
+    def __init__(self, mean, std):
+        self.worker = GroupNormalize(mean, std)
+
+    def __call__(self, crops):
+        group_ = [self.worker(crop) for crop in crops]
+        stack = torch.stack(group_, 0)
+        return stack
+
+class GroupTenLoopPad(object):
+    def __init__(self, max_len):
+        self.worker = LoopPad(max_len)
+
+    def __call__(self, crops):
+        group_ = [self.worker(crop) for crop in crops]
+        return torch.stack(group_, 0)
